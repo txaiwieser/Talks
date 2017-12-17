@@ -1,0 +1,624 @@
+5 coisas que toda pessoa desenvolvedora iOS deveria saber.
+
+Nessa talk falo um pouco sobre tópicos que acredito serem de extrema importância para quem desenvolve iOS. Passando por alguns conceitos de Swift que sempre geram dúvidas, explicando porque temos que nos preocupar com gerenciamento de memória, algumas dicas para facilitar a vida na hora de debugar o código e o layout, qual a melhor forma de fazer comunicação entre partes de um app e, por final, o que se deve (e não se deve) fazer para tornar um App mais seguro.
+
+1 - Swift Avançado: Reference and Value Types, Optionals e Closures. 
+2 - Funções de Alta Ordem: Map, Filter e Reduce.
+3 - Gerenciamento de Memória: Strong, Weak e Unowned
+4 - Técnicas de DEBUG
+5 - Segurança: Overview
+TOTAL: 45m
+
+
+1.1) Reference Types vs. Value Types
+
+Então, qual a diferença entre esses dois tipos?
+Uma explicação super simplificada é que Value Types guardam uma copia única de seus dados, enquanto Reference Types compartilham uma única cópia de seus dados.
+
+Swift representa um Reference Type como uma classe. Isso é similar ao Objective-C, onde tudo que herdava de NSObject (que é uma classe) era guardado como uma Reference Type.
+
+Existem diversos Value Types em Swift (Structs, Enums, Tuples..)
+
+Isso mostra uma sutil, mas MUITO importante diferença entre Referencia e Valores. Mutabilidade.
+
+var e let funcionam diferente para referencias e para valores.
+Notem que quando um cachorro é definido puppy constante let
+mas mesmo assim, foi possivel mudar a propriedade wasFed. Como isso é possivel?
+
+Bom, para Reference Types, let significa que a referencia precisa permanecer constante (apontando pro mesmo endereço de memoria)
+Em outras palavras, não podemos fazer essa referencia apontar para outro espaço de memoria (constante) mas podemos mudar o conteudo apontado por ela.
+
+Para Value Types, let significa que uma instancia precisa permanecer completamente constante.
+Nenhuma propriedade da instancia vai ser mutada. não importando se ela está declarada com let ou var.
+
+É muito mais facil de controlar a mutações com Value Types, para atingir o mesmo nível de imutabilidade com references types precisamos contruir uma grande infraestrutura para bloquear os comportamentos indesejados. E é por isso que temos em objective-C NSString vs. NSMutableString. NSArray vs. NSMutableArray.
+
+
+Uma rapida olhada nos tipos disponiveis no próprio Swift temos:
+
+Swift 3.0:
+struct: 124
+enum: 19
+class: 3
+
+Isso inclui String, Array, Dictionary, Int, Double.
+Lembre que estamos falando de Foundation e não de UIKit, onde quase tudo ainda são classes.
+
+Agora que todos sabemos bem as diferenças entre os dois tipos, temos que nos fazer a pergunta:
+Quando devo escolher um e quando devo escolher o outro?
+
+Nas documentação do Swift a Apple diz o seguinte:
+
+QUANDO USAR VALUE TYPE
+IDENTITY VS EQUALITY
+• Onde comparar instancias com == faz sentido
+Você pode se perguntar, mas todo objeto deveria ser comparavel.
+
+Mas temos que considerar se os dados desse objeto deveriam ser comparados.
+Por exemplo:
+
+struct Point {
+  var x: Float
+  var y: Float
+}
+
+Isso significa que duas variaveis distintas com o mesmo x e y devem ser considerada iguais?
+let point1 = Point(x: 2, y: 3)
+let point2 = Point(x: 2, y: 3)
+
+É bem claro que dois objetos Points com o mesmo valor interno devem ser considerados iguais. A posição de memoria desses valores não importa. Estamos considerando o seus dados.
+
+Copias devem ter estado independente
+
+Vamos usar o Point como exemplo ainda
+Imagine uma representação de uma forma geometrica que possui um pointo central.
+
+struct Shape {
+	var center: Point
+}
+
+let initialPoint = Point(x: view.size.width/2, y: view.size.height/2)
+
+var circle = Shape(center: initialPoint)
+var square = Shape(center: initialPoint)
+
+Agora imagine que pegamos o quadrado e animamos sua posição até um dos cantos da tela.
+
+square.center.x = view.size.width
+circle.center // Qual o valor aqui?
+
+É obvio que Nossa escolha de usar um Value Type para o Point foi a escolha correta.
+
+• Os dados vão ser usandos no código em multiplas threads?
+
+
+QUANDO USAR REFERENCE TYPE:
+
+Embora value types são muito uteis, referencias ainda são muito importantes em certas condições
+Comparar instancia exata com === faz sentido
+
+=== conferen se dois objetos são exatamente os mesmo, se as referencias apontam para o mesmo endereço de memoria.
+Para ver em termos reais, vamos considerar o seguinte:
+
+Geralmente temos poucos casos onde realmente queremos ter uma herança de identidade, local da memoria. Geralmente só nos importamos por comparar os valores dos dados.
+
+Um caso comum com um estado mutavel compartilhado desejado é uma conta bancaria conjunta.
+
+Podemos implementar uma representação básica de uma conta e pessoa assim:
+
+class Account {
+	var balance = 0.0
+}
+
+class Person {
+  	let account: Account
+  	init(_ account: Account) {
+    	self.account = account
+  	}
+}
+
+Se qualquer pessoa que for inicializada com a mesma instancia de Account adicionar dinheiro a essa conta, todos os usuarios dessa conta terão seus valores atualizados também.
+
+let account = Account()
+
+let person1 = Person(account)
+let person2 = Person(account)
+
+person2.account.balance += 100.0
+
+person1.account.balance    // 100
+person2.account.balance    // 100
+
+Já que Account é uma classe, cada pessoa guarda apenas uma referencia ao local de memoria onde um unico objeto está salvo. assim tudo fica em sincronia.
+
+
+Se você estiver em duvida se deve usar um Value Type ou um Reference Type, comece com o Reference Type.
+
+E se por acaso encontrar uma situação onde um comportamento compartilhado é desejado, mude para uma classe.
+
+Considere que Swift usa quase explusivamente Value Types, enquanto Objective-C usa quase exclusivamente classes.
+
+Se queremos escrever uma arquitetura de código moderna e nas tendencias do Swift, temos que privilegiar imutabilidade.
+
+
+
+Copy-on-Write
+
+Swift nativamente, implementa seus Value Types com Copy-on-Write.
+Quando um valor é atribuido a outra referencia, ele permanece apontando para o mesmo endereço de memoria. Ele só é copiado para seu espaço exclusivo mediante a uma modificação nos dados. Assim garantimos extrema eficiencia. E a segurança da imutabilidade.
+
+
+
+
+
+
+
+
+
+
+
+
+1.2 - Optionals
+
+enum Caixa {
+	case algumaCoisa
+	case nada
+}
+
+switch presente {
+case .algumaCoisa:
+    print("OBA!")
+case .nada:
+    print(":(")
+}
+
+
+struct Bicicleta {
+	let marca: String
+}
+
+enum Caixa {
+	case algumaCoisa(Bicicleta)
+	case nada
+}
+
+switch presente {
+case .algumaCoisa(let bike):
+    print("OBA! Uma bicicleta da \(bike.marca)")
+case .nada:
+    print(":(")
+}
+
+
+enum Caixa {
+	case algumaCoisa(Any)
+	case nada
+}
+
+switch presente {
+case .algumaCoisa(let algo):
+    print("OBA! Uma ??")
+case .nada:
+    print(":(")
+}
+
+
+enum Caixa<T> {
+	case algumaCoisa(T)
+	case nada
+
+	init() {
+		self = .nada
+	}
+
+	init(_ algo: T) {
+		self = .algumaCoisa(algo)
+	}
+}
+
+let presente = Caixa<Patinete>()
+let presente = Caixa<Patinete>(patinete)
+
+
+enum Optional<T> {
+	case some(T)
+	case none
+
+	init() {
+		self = .none
+	}
+
+	init(_ some: T) {
+		self = .some(some)
+	}
+}
+
+
+let presente = Optional<Patinete>()
+let presente = Optional<Patinete>(patinete)
+
+let presente: Optional<Patinete> = .none
+let presente: Optional<Patinete> = .some(patinete)
+
+let presente: Patinete? = .none
+let presente: Patinete? = .some(patinete)
+
+let presente: Patinete? = nil
+let presente: Patinete? = patinete
+
+
+Nem sempre ausencia de valor é zero
+
+let numeroSorteio1: Int? = nil
+let numeroSorteio2: Int = 5
+
+let soma = numeroSorteio1 + numeroSorteio2
+
+Não posso somar uma caixa que pode ter um Int com um Int
+numeroSorteio1 != numeroSorteio2
+
+O que eu preciso fazer? Abrir a caixa e ver se tem algo dentro
+
+switch numeroSorteio1 {
+	case .none:
+		let soma = numeroSorteio2
+	case .some(let numeroSorteio1):
+		let soma = numeroSorteio1 + numeroSorteio2
+}
+
+
+if let numeroSorteio1 = numeroSorteio1 {
+	let soma = numeroSorteio1 + numeroSorteio2	
+} else {
+	let soma = numeroSorteio2
+}
+
+
+
+
+
+
+
+
+
+
+1.3) CLOSURE:
+
+
+
+
+Quando falamos só "Closure" em swift, geralmente estamos nos referindo ao 3º item, closure expressions.
+
+Se tem uma coisa que pode ajudar a lembrar o que uma closure é é essa frase:
+
+"Closures are headless functions.""
+
+Sintaxe
+
+
+let sayHello = { (name: String) -> String in
+    return "Hello \(name)"
+}
+
+let sayHello: ((String) -> String) = { "Hello \($0)" }
+
+sayHello("Txai") // Hello Txai"
+
+
+
+
+Vamos lá, esse tópico acho que nem vai aparecer mais ao longo da apresentação, mas eu fiz questão de colocar ele porque programação funcional é <3
+E eu sei que quando a gente olha essas funções sem entender realmente como funcionam nada parece fazer sentido, mas vem comigo que na pratica é facil.
+
+
+2) Funções de alta ordem
+
+Uma função de ordem superior é uma função que:
+
+• Recebe uma função como parametro.
+• Produz uma função como resultado.
+
+
+
+2.1) MAP
+
+var alunosNotas = [4, 5, 7, 9, 6, 10, 3]
+
+// Adicionar 1 a todos valores de um array de notas de alunos
+
+var novaNotas: [Int] = []
+
+/* Percorre todo array de alunosNotas, adiciona 1 ao valor em seguida adiciona
+    no array novasNotas este elemento.
+ */
+for nota in alunosNotas {
+    let novaNota = nota + 1
+    novaNotas.append(novaNota)
+}
+
+............
+
+// Uma das váriações de sintaxes do map, utilizando closures
+
+var alunosNotas = [4, 5, 7, 9, 6, 10, 3]
+
+alunosNotas = alunosNotas.map( { (nota: Int) -> Int in
+    return nota + 1
+})
+
+
+alunosNotas = alunosNotas.map( { nota in
+    return nota + 1
+})
+
+alunosNotas = alunosNotas.map( { nota in
+    nota + 1
+})
+
+alunosNotas = alunosNotas.map( {
+    $0 + 1
+})
+
+alunosNotas = alunosNotas.map( { $0 + 1 } )
+
+alunosNotas = alunosNotas.map { $0 + 1 }
+
+
+
+2.2) FILTER:
+
+
+var alunosNotas = [4, 5, 7, 9, 6, 10, 3]
+
+// Adicionar 1 a todos valores de um array de notas de alunos
+
+var aprovadosNotas: [Int] = []
+
+/* Percorre todo array de alunosNotas, adiciona 1 ao valor em seguida adiciona
+    no array novasNotas este elemento.
+ */
+for nota in alunosNotas {
+    if nota >= 5 {
+    	aprovadosNotas.append(novaNota)
+    }
+}
+
+
+
+.....
+
+
+// Verifica se a nota é >= a 5
+
+var alunosNotas = [4, 5, 7, 9, 6, 10, 3]
+alunosNotas = alunosNotas.filter { $0 >= 5 }
+
+
+
+
+2.3) REDUCE:
+
+
+var alunosNotasReduce = [4, 5, 7, 9, 6, 10, 3]
+
+var soma = 0
+
+/* Percorre todo array de alunosNotasReduce, e a cada elemento soma ele mesmo com a variavel soma */
+
+for nota in alunosNotasFilter {
+    soma += nota
+}
+
+
+// Uma das sintaxes do reduce, utilizando $, onde ele recebe a closure com a operação e o valor inicial (nesse caso 0).
+
+var alunosNotas = [4, 5, 7, 9, 6, 10, 3]
+soma = 0
+soma = alunosNotas.reduce(0, { $0 + $1 })
+soma = alunosNotas.reduce(0, +)
+
+
+
+
+let despesas = [4.50, 5.00, 8.30, 2.80, 9.10, 7.70]
+
+let total = despesas.filter { $0 >= 7 }
+					 .map { $0 * 1.10 }
+					 .reduce(0, +)
+
+
+
+
+
+3) Gerenciamento de Memória
+
+Contador de referencias
+Ciclos de referencias
+Strong, Weak e Unowned
+
+
+4) Técnicas de DEBUG
+
+O que é LLDB?
+Bom, eu não vou explicar ao fundo o que é o LLDB, mas vamos falar um sobre alguns exemplos práticos de como usa-lo parar deixar facilitar o debug.
+
+LLDB é basicamente o debugger default que vem no Xcode.
+
+      cplusplus    -- Commands for operating on the C++ language runtime.
+      objc         -- Commands for operating on the Objective-C language runtime.
+      renderscript -- Commands for operating on the RenderScript runtime.
+      swift        -- A set of commands for operating on the Swift Language Runtime.
+
+
+
+Breakpoints
+
+Hide debug area: Serve para dar hide/show do CLI do LLDB;
+Deactivate breakpoints: É um botão toggle que vai ligar/desligar todos os seus breakpoints sem removê-los;
+Continue: Continua a execução normalmente do seu app;
+Step Over: Executa a linha onde o programa está esperando e para na próxima instrução;
+Step Into: Entra na declaração de um método;
+Step Out: Sai da declaração de um método e volta para quem o chamou.
+
+
+
+Print: O comando Print serve para printar uma variável, geralmente utilizado para printar tipos primitivos;
+
+Print Object: Parecido com o print, mas geralmente é utilizado para printar objetos. Ele vai retornar o objeto formatado de uma maneira mais fácil de entender pois o resultado vem do método debugDescription e faz fallback para o description. Inclusive é possível customizar esses resultados fazendo override desses métodos;
+
+Expression: O expression vai basicamente rodar (evaluate) uma expressão que você digitar. Essa expressão pode ser, por exemplo, uma linha de código exatamente como você digitaria no Xcode, inclusive é permitido alterar valores em runtime. Expression é tão importante que uma boa parte de comandos são apenas um alias do expression com certos parâmetros;
+
+
+Watchpoint: Esse aqui é legal para acompanhar se um valor foi alterado. Digamos que você tem uma variável e quer ser avisado de toda vez que ela sofrer uma alteração.
+
+Vale notar que o LLDB faz matching do prefixo dos comandos, ou seja, você pode digitar apenas p ao invés de print, e ao invés de expression, etc.
+
+Atalhos: p po e w
+
+
+Expressions
+
+view.backgroundColor = .red
+
+
+(lldb) e view.backgroundColor = .red
+(UICachedDeviceRGBColor *) $3 = 0x00006080000735c0
+e [CATransaction flush]
+
+
+
+(lldb) e UIView(frame: CGRect(.zero, CGSize(200, 200)))
+(UIView *) $6 = 0x00007fd968409620
+(lldb) e $6.backgroundColor = .blue
+(UICachedDeviceRGBColor *) $7 = 0x000061800007a180
+(lldb) e view.addSubview($6)
+(lldb) e [CATransaction flush
+
+
+Breakpoint Actions
+
+Pare acessar o breakpoint action você dá um duplo click no seu breakpoint ou acessa pelo atalho Command + Alt + click.
+
+
+Condition: Caso você queira fazer uma condição especial para seu breakpoint ser executado, por exemplo, durante um parser, você quer parar quando uma variável X for igual a Y. O código que você usa aqui é praticamente o mesmo que você escreveria no programa;
+Ignore: Caso você queira ignorar o seu breakpoint num número X de vezes, por exemplo num loop;
+Action: Aqui você seleciona qual ação seu breakpoint vai executar, vamos ver com detalhes mais pra frente;
+Options: Basicamente uma opção para continuar, caso você não queira que o programa pare nesse breakpoint, útil para logs, por exemplo. (Não sei porque está no plural se é apenas um checkbox).
+
+
+Debugger Command: Todos os comandos que vimos anteriormente podem ser rodados aqui.
+
+
+
+5) Segurança | Overview
+
+
+Security is a key aspect of software development. Almost every mobile application deals with user information or communicates with a remote server. Even though security has improved dramatically over the past decades, it continues to be a hotly debated topic.
+
+number of topics that are related to security and mobile development. 
+I touch upon a number of best practices and suggestions that you may find useful to secure the applications you write.
+
+
+Security and Privacy
+
+Apple takes security and privacy very serious. 
+
+1. Armazenando Dados
+
+Should Your Application Store Data
+Before you decide how or where to store a particular piece of data, you need to ask yourself whether you should store that data in the first place. Is it possible, for example, to keep the data in memory instead of writing it to disk or sending it to a remote server? This can greatly simplify your application's architecture and improve its security.
+
+Where Should You Store Data
+If you decide that storing the data locally is your only option, you need to decide where you plan to store that data. For sensitive information, such as credentials, the keychain is your best option. This is only feasible for small amounts of data your application doesn't need frequent access to.
+
+Does the data need to be backed up to iCloud or iTunes? If that isn't the case, then you may want to consider storing the data in the Caches directory of the application's sandbox. This directory is not backed up to iCloud and iTunes. Why is that important? Data that doesn't exist cannot be compromised.
+
+Keychain
+The defaults system, accessible through the NSUserDefaults class, is a fast and convenient way to store chunks of data. Unfortunately, the defaults system is often overused by developers. It happens all too often that sensitive information, such as credentials and access tokens, are stored in the defaults system.
+
+A much better location for storing small chunks of sensitive information is the system's keychain. As the name implies, it was designed with security in mind and it has been around for many, many years. Even though the keychain is managed by the operating system, by default, other applications don't have access to the items your application stores in the keychain.
+
+It is true that the interface for accessing the keychain services is archaic. Fortunately, there are several excellent libraries that overcome this hurdle. Lockbox, for example, is a lightweight library for interacting with the system's keychain services. Lockbox's interface is easy to use and understand.
+
+Keys, Tokens, Credentials
+It is tempting to store keys, tokens, and even credentials in easily accessible locations, such as the target's Info.plist or a JSON file in your application's bundle. The truth is, it is child's play to extract that information from an application downloaded from the App Store. By storing an API token for a web service in your application's Info.plist, other developers can find it and use it.
+
+2. Networking
+
+App Transport Security
+Security and privacy have been on Apple's agenda for many years and, along with other major players, Apple has decided to lead by example. During last year's WWDC, the company introduced App Transport Security.
+
+With App Transport Security, Apple aims to improve the security of its platforms and the applications running on them. No matter how much Apple invests in securing its operating systems, a system is only as secure as its weakest component and that includes third party applications.
+
+App Transport Security enforces applications to send network requests over a secure connection. If App Transport Security is enabled for an application, network requests are sent over HTTPS by default. Apple emphasizes its commitment to security and privacy by automatically enabling App Transport Security for applications built with Xcode 7.
+
+You can read more about App Transport Security on Envato Tuts+. While it is easy to disable App Transport Security, bear in mind that one of the goals of App Transport Security is to make developers consider the network behavior of their applications.
+
+Who Am I Talking To
+Virtually every mobile application uses the network. This means that people with bad intensions heavily focus on this aspect of application security. Networking is a complex matter and applications build on top of a slew of technologies to fetch the data they are interested in.
+
+As a developer, it is key that you stick to a number of best practices. We already discussed App Transport Security and the rules this new technology enforces. It doesn't stop there, though. You may also want to look into more advanced topics, such as certificate pinning to ensure the server your application is communicating with isn't fraudulent. Modern libraries, such as Alamofire, make this much easier.
+
+3. Sensitive Information
+
+User Data
+Most applications use or store sensitive user information. Mobile devices have access to a wide range of user information that is often personal and sensitive in nature, such as location, address book, and health information.
+
+As I mentioned earlier in this article, the first question you need to ask yourself is whether you need to access this information and, more importantly, whether you need to store that information.
+
+If you can access the information you need through a native framework, such as HealthKit, then there is no need to duplicate and store that information. For example, Apple will reject applications that store the user's health information in iCloud.
+
+Keep It Local
+Assuming that you need to store some sensitive information, consider whether that information should be kept local. Is it necessary to send sensitive information to a remote server?
+
+Storing sensitive information comes with a warning. If the server you are storing sensitive information on is compromised, you may be held responsible for exposing that information to other parties.
+
+Conclusion
+
+The security of an application is a fundamental aspect of software development. Consider what data your application has access to and whether it should store that information. If you do decide to store sensitive information, keep the above tips and best practices in mind. Make sure you treat the user's information with respect. Even though the information may look unimportant to you, it is important to the user.
+
+
+HTTPS protocol and TLS 1.2.
+
+Enable Application Transport Security:
+With the launch of iOS 9 and OS X El Capitan, Apple has introduced App Transport Security, which enforces developers to use secure network connections. This change implies that every connection the application makes must use HTTPS protocol and TLS 1.2.
+
+In other words, our application cannot communicate with a server using a non-secure connection, such as HTTP, unless it is explicitly indicated. As this was a breaking change, Apple provided an easy way to master this new requirement by adding exceptions or disabling it in the plist file.
+Nevertheless, it is strongly recommended not to bypass this restriction, and instead, use secure connections in our apps to avoid potential (and easy) attacks.
+
+
+SSL Pinning:
+Once ATS is enabled, the second step to increase our apps security consists in enabling SSL Pinning.
+SSL Pinning is a technique that allows us to deal with an attack called Man in the Middle. SSL is based on the certificate’s “chain of trust”. When the communication starts, the client checks if the received server’s SSL certificate is trusted by any SSL Certificate Authority.
+We can use SSL Pinning to ensure that the app communicates only with the designated server itself. This is done by saving the target server’s SSL certificate inside the app bundle.
+SSL Pinning has a visible disadvantage, not related to the security itself: the app must be updated whenever the server’s SSL key is changed, due to expiration and other reasons.
+
+SSL Pinning
+
+
+LINKS:
+
+https://developer.apple.com/swift/blog/?id=10
+https://cocoacasts.com/value-types-and-reference-types-in-swift
+https://stablekernel.com/when-to-use-value-types-and-reference-types-in-swift/
+//
+http://equinocios.com/optionals/2016/03/25/optionals-e-o-gato-de-schrodinger/
+https://medium.com/ios-os-x-development/swift-optionals-78dafaa53f3
+//
+https://medium.com/ios-os-x-development/introduction-to-closures-in-swift-3-1d46dfaf8a20
+//
+https://useyourloaf.com/blog/swift-guide-to-map-filter-reduce/
+https://medium.com/@mimicatcodes/simple-higher-order-functions-in-swift-3-0-map-filter-reduce-and-flatmap-984fa00b2532
+http://equinocios.com/swift/2017/03/13/Introducao-e-casos-de-uso-Map-Filter-e-Reduce/
+//
+http://equinocios.com/ios/2017/03/08/lldb-e-seu-amigo/
+//
+https://github.com/felixgr/secure-ios-app-dev
+https://github.com/shieldfy/API-Security-Checklist
+https://medium.com/wolox-driving-innovation/how-to-increase-my-ios-application-security-17681f068d11
+https://code.tutsplus.com/articles/how-to-secure-an-ios-app--cms-26533
+//
+
+
+
+
