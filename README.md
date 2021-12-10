@@ -7,7 +7,7 @@ This is an archive repository for my talks! Feel free to open issues if you see 
 - When: Nov 2019
 
 
-### 5 Things every iOS developer should know (5 coisas que toda pessoa desenvolvedor iOS deveria saber)
+### 5 Things every iOS developer should know (5 coisas que toda pessoa desenvolvedora iOS deveria saber)
 - Where: Mobile Summit
 - When: Dec 2017
 
