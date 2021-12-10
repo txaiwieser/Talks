@@ -1,0 +1,46 @@
+{% for type in types.based.PreviewProvider %}
+{% macro viewName %}{{type.name | replace:"_Previews","" }}{% endmacro %}
+//sourcery:file:ExamplesTests/Previews/{% call viewName %}Tests.generated.swift
+import SnapshotTesting
+import SwiftUI
+import XCTest
+@testable import Examples
+
+class {% call viewName %}PreviewTests: XCTestCase {
+    {% for preview in type.staticVariables where preview.name|hasPrefix:"preview" %}
+    {% if forloop.length == 1 or forloop.counter > 1 %}
+    {# Contains only the default previews variable OR Contains multiple preview variable skipping the default one #}
+    {% macro testName %}{% call viewName %}PreviewTests_{{ preview.name|upperFirstLetter }}{% endmacro %}
+    func test{{ preview.name|upperFirstLetter }}_iPhone_InterfaceStyleLight() {
+        assertSnapshot(
+            matching: {{ type.name }}.{{ preview.name }},
+            as: .image(layout: .device(config: .iPhoneX), traits: .init(userInterfaceStyle: .light))
+        )
+    }
+
+    func test{{ preview.name|upperFirstLetter }}_iPhone_InterfaceStyleDark() {
+        assertSnapshot(
+            matching: {{ type.name }}.{{ preview.name }},
+            as: .image(layout: .device(config: .iPhoneX), traits: .init(userInterfaceStyle: .dark))
+        )
+    }
+
+    func test{{ preview.name|upperFirstLetter }}_iPadMini_InterfaceStyleLight() {
+        assertSnapshot(
+            matching: {{ type.name }}.{{ preview.name }},
+            as: .image(layout: .device(config: .iPadMini(.portrait)), traits: .init(userInterfaceStyle: .light))
+        )
+    }
+
+    func test{{ preview.name|upperFirstLetter }}_iPadMini_InterfaceStyleDark() {
+        assertSnapshot(
+            matching: {{ type.name }}.{{ preview.name }},
+            as: .image(layout: .device(config: .iPadMini(.portrait)), traits: .init(userInterfaceStyle: .dark))
+        )
+    }
+
+    {% endif %}
+    {% endfor %}
+}
+//sourcery:end
+{% endfor %}
